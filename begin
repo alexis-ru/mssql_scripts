@@ -1,0 +1,78 @@
+Set-ExecutionPolicy Unrestricted -Force
+
+
+
+Start-BitsTransfer "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorksDW2012.bak" "C:\Data\backup\AdventureWorksDW2012.bak"
+
+
+
+IF EXISTS (SELECT * FROM sys.databases WHERE name = 'AdventureWorks')
+BEGIN
+    DROP DATABASE AdventureWorks;
+END;
+CREATE DATABASE AdventureWorks;
+GO
+
+
+
+USE master;
+GO
+
+ALTER DATABASE AdventureWorks
+SET SINGLE_USER WITH ROLLBACK IMMEDIATE
+GO
+
+RESTORE DATABASE AdventureWorks FROM DISK = 'C:\Data\backup\AdventureWorksDW2012.bak'
+WITH MOVE 'AdventureWorksDW2012' TO 'C:\Data\AdventureWorks.mdf',
+MOVE 'AdventureWorksDW2012_Log' TO 'C:\Data\AdventureWorks_Log.ldf',
+RECOVERY, REPLACE;
+
+ALTER DATABASE AdventureWorks
+SET MULTI_USER with ROLLBACK IMMEDIATE
+GO
+
+
+
+BACKUP DATABASE AdventureWorks TO DISK='\\path\to\backup\AdventureWorks.bak'
+WITH FORMAT, COMPRESSION;
+
+
+
+SELECT		DISTINCT(DimCustomer.CustomerKey),
+			DimCustomer.FirstName + ' ' + DimCustomer.MiddleName + ' ' + DimCustomer.LastName AS ФИО,
+			DimCustomer.Gender AS "Пол",
+			DimCustomer.BirthDate AS "День рождения",
+			DimCustomer.EmailAddress AS "E-mail",
+			DimCustomer.AddressLine1 AS "Адрес",
+			DimCustomer.Phone AS "Телефон",
+			DimCustomer.EnglishEducation AS "Уровень образования",
+			FactSurveyResponse.EnglishProductCategoryName AS "Категория товаров",
+			FactSurveyResponse.EnglishProductSubcategoryName AS Товары
+FROM DimCustomer INNER JOIN FactSurveyResponse ON DimCustomer.CustomerKey = FactSurveyResponse.CustomerKey order by CustomerKey;
+
+
+
+SELECT	dg.GeographyKey,
+	dg.PostalCode + ', ' + dg.EnglishCountryRegionName + ', ' +  dg.StateProvinceName + ', ' +  dg.City AS "Адрес (составной)",
+	dr.AddressLine1 AS "Альтернативный адрес",
+	dr.Phone AS "Телефон реселера",
+	dr.ResellerName AS "Имя реселера",
+	dr.BankName AS "Банк реселера"
+FROM DimGeography dg JOIN DimReseller dr ON dg.GeographyKey = dr.GeographyKey
+
+
+
+SELECT	fr.ProductKey AS "Идентификатор товара",
+		fr.EmployeeKey AS "Идентификатор сотрудника",
+		fr.SalesOrderNumber AS "Номер заказа",
+		fr.CustomerPONumber AS "ПОН номер покупателя",
+		fr.SalesAmount AS "Розничная цена",
+		fr.ProductStandardCost AS "Закупочная цена",
+		fr.CarrierTrackingNumber AS "Трекер курьера",
+		fi.CustomerKey AS "Идентификатор покупателя",
+		fi.SalesTerritoryKey AS "Идентификатор территории продажи"
+FROM	FactResellerSales fr JOIN FactInternetSales fi
+ON		fr.ProductKey = fi.ProductKey AND
+		fr.OrderDateKey = fi.OrderDateKey AND
+		fr.DueDateKey = fi.DueDateKey AND
+		fr.ShipDateKey = fi.ShipDateKey
